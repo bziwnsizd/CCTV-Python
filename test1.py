@@ -7,15 +7,18 @@ import folium
 import folium.plugins
 import math
 import gpxpy.geo
+import geojson
 
 #강의실
 a = pd.read_csv('C:/Users/USER/Desktop/SK infosec/SK-Infosec/tens/crime.csv', thousands=',',encoding='euc-kr')
 b = pd.read_csv('C:/Users/USER/Desktop/SK infosec/SK-Infosec/tens/cctv1.csv', thousands=',',encoding='euc-kr')
+police = pd.read_csv('C:/Users/USER/Desktop/SK infosec/SK-Infosec/tens/police.csv', thousands=',',encoding='euc-kr')
 #노트북
 # a = pd.read_csv('C:/Users/His hacker/Desktop/gitlab/SK-Infosec/tens/crime.csv', thousands=',',encoding='euc-kr')
 # b = pd.read_csv('C:/Users/His hacker/Desktop/gitlab/SK-Infosec/tens/cctv1.csv', thousands=',',encoding='euc-kr')
 a.head()
 b.head()
+police.head()
 # 원점의 폴리곤화
 def calc_offsets(radi, lat):
     return (
@@ -68,6 +71,7 @@ def search_map(search_text):
         return response_body.decode('utf-8')
     else:
         print("Error Code:" + rescode)
+
 # html button click
 def crrosover(parameter):
     
@@ -81,10 +85,10 @@ def crrosover(parameter):
     asz = []
     for i in coordinates:
         asz.append(i)
-
+    icon = folium.features.CustomIcon('C:/Users/USER/Desktop/SK infosec/SK-Infosec/tens/user.png', icon_size=(15, 15))
     folium.Marker(
         R2_p,
-        icon = folium.Icon(color='blue'), #icon='C:/Users/His hacker/Desktop/gitlab/SK-Infosec/tens/images.png'
+        icon = icon,
         popup = R2_p
     ).add_to(fg_2)
     #각 cctv의 폴리곤 원형화
@@ -103,21 +107,29 @@ def crrosover(parameter):
     R1_p = (crros_over[0], crros_over[1])
     pulse = (crros_over[2])
 
-       #0.013  10   50
+    # 첫번째 = cctv안에 유저 전체가 들어감 print(36%) <= 고정값
+    # 세번째 = cctv안에 유저가 일부 들어감 print(1~35%) <= 거리기반값
     if pulse + R <= r : # 장소의 원안에 유저의 원이 존재할 경우
-        ##error ar 값이 r과 R로만 이루어짐
-        ar = (math.pi * pow(R, 2)) / (math.pi * pow(r, 2))
-        print("첫번째")
+        ar = (math.pi * pow(R, 2)) / (math.pi * pow(r, 2)) 
+        print("첫번째") 
     elif pulse + r <= R : #유저의 원안에 장소의 원이 존재할 경우
         ar = 1.0
         print("두번째")
-    elif pulse < R + r : #두 원이 겹쳐지지 않은 경우 + 부분적으로 겹쳐진경우
+    elif pulse < R + r : #두 원이 겹쳐지지 않은 경우 + 부분적으로 겹쳐진경우 MAX =36 ,Min = 1 
         ar = intersection_area(R, r, d) / (math.pi * pow(r, 2))
         print("세번째")
     else :
         print("에러")
     print(ar)
-
+    
+    d = round(d)
+    #현재 위치 기준으로 반경내 이탈한지 체크
+    if d < 5 :
+        return # a = "cctv 반경 내에 위치합니다."
+    else :
+        return # a = "cctv 반경에서 벗어났습니다."
+    return # a
+    
 #crrorover() 사용자 GPS 입력값
 #######################################
 #if parameter가 있을경우 아래 실행      #
@@ -171,6 +183,8 @@ m = folium.Map(
 #정보 부분 출력
 fg_1 = folium.FeatureGroup(name='markers_1').add_to(m)
 fg_2 = folium.FeatureGroup(name='markers_2').add_to(m) 
+fg_3 = folium.FeatureGroup(name='markers_3').add_to(m) 
+fg_4 = folium.FeatureGroup(name='markers_4').add_to(m) 
 
 #지역별 범죄현황
 #               16개
@@ -195,10 +209,10 @@ for i in range(373):
 
 radi = 30 #반경
 radi_user = 15 #유저반경
-rotating_degree = 10 #회전각도 5개
+rotating_degree = 45 #회전각도
 ar = 0 #비율, 교차하지 않은 경우의 값
 r = 50 #장소의 원의 반지름
-R = 10 #유저의 원의 반지름
+R = 30 #유저의 원의 반지름
 
 #cctv input
 for i in range(373):
@@ -212,32 +226,56 @@ for i in range(373):
     b = []
     for i in coordinates:
         b.append(i)
-
+    _geojson = {
+        'feautres': [
+            {
+                'type': 'Feature',
+                'geometry': {
+                    'type': 'Polygon',
+                }
+            }
+        ]
+    }
+    icon1 = folium.features.CustomIcon('C:/Users/USER/Desktop/SK infosec/SK-Infosec/tens/cctv.png', icon_size=(17, 17))
     folium.Marker(
         c,
-        icon = folium.Icon(color='red'), #icon='C:/Users/His hacker/Desktop/gitlab/SK-Infosec/tens/images.png'
+        icon = icon1,
         popup = c
     ).add_to(fg_2)
-    # 각 cctv의 폴리곤 원형화
-    folium.Polygon(
-    locations = b,
-    fill = True,
-    color = 'red',
-    tooltip = 'Polygon'
+    #각 cctv의 폴리곤 원형화
+    # folium.Polygon(
+    #     locations = b,
+    #     fill = True,
+    #     color = 'red',
+    #     tooltip = 'Polygon'
+    # ).add_to(fg_2)
+    folium.Circle(
+        location = c,
+        radius = 25,
+        fill = True,
+        color = 'red',
+        tooltip = 'Polygon'
     ).add_to(fg_2)
+police_we = []
+police_gang = []
+for i in range(2264):
+    police_we.append(police.iloc[i, 4]) #위도
+    police_gang.append(police.iloc[i, 3]) #경도
 
 
 
-# 교차 면적 함수 구하기
-# cctv = 37.4596667, 126.90474640000002
-# R2_p = 37.459485, 126.905046
-# distance = 0.03299627717084893 
-
+for i in range(2264):
+    police_loc = (police_we[i],police_gang[i])
+    #print(police_loc)
+    icon2 = folium.features.CustomIcon('C:/Users/USER/Desktop/SK infosec/SK-Infosec/tens/police.png', icon_size=(20, 20))
+    folium.Marker(
+        police_loc,
+        icon=icon2,
+        popup = police_loc
+    ).add_to(fg_3)
 
 folium.LayerControl(collapsed=False).add_to(m)
 m.save('complete.html')
-
-
-#경찰서 좌표 찍기
+#경찰서 좌표 찍기 + dintance해서 
 #
-#cctv 이미지, 경찰서 좌표 및 이미지
+#마커 이미지
